@@ -1,0 +1,22 @@
+image: python:3.6.4
+pipelines:
+
+  branches:
+    master:
+      - step:
+          name: Deploy pypi stack
+          deployment: production
+          script:
+            - echo "Making deployment package..."
+            - pip install awscli
+            - aws cloudformation package --region us-east-1 --template-file cloudformation/s3-pypi.yaml --output-template-file generated.yaml --s3-bucket awsome.project.com
+
+            - echo "Updating CloudFormation stack..."
+            - bash aws-cloudformation.sh deploy --template-file generated.yaml --stack-name pypi --capabilities CAPABILITY_NAMED_IAM --parameter-overrides DomainName=pypi.awsome.project.com AcmCertificateArn=arn:aws:acm:... --s3-bucket deployments.awsome.project.com
+
+            - echo "Updating package to pypi storage (S3)..."
+            - pip install s3pypi --extra-index-url https://pypi.awsome.project.com
+            - s3pypi --bucket pypi.awsome.project.com --private --force
+
+options:
+  max-time: 10  # Max time for building is 10 minutes

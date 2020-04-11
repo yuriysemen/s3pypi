@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Stack for hosting pypi packages to be able to reuse in different sub projects. See s3pypi setup - Visit https://novemberfive.co.
+Mappings:
+  RegionMap:
+    us-east-1:
+  WebsiteEndpoint: s3-website-us-east-1.amazonaws.com
+  us-west-2:
+    WebsiteEndpoint: s3-website-us-west-2.amazonaws.com
+  us-west-1:
+    WebsiteEndpoint: s3-website-us-west-1.amazonaws.com
+  eu-west-1:
+    WebsiteEndpoint: s3-website-eu-west-1.amazonaws.com
+  eu-central-1:
+    WebsiteEndpoint: s3-website.eu-central-1.amazonaws.com
+  ap-southeast-1:
+    WebsiteEndpoint: s3-website-ap-southeast-1.amazonaws.com
+  ap-northeast-1:
+    WebsiteEndpoint: s3-website-ap-northeast-1.amazonaws.com
+  ap-southeast-2:
+    WebsiteEndpoint: s3-website-ap-southeast-2.amazonaws.com
+  ap-northeast-2:
+    WebsiteEndpoint: s3-website.ap-northeast-2.amazonaws.com
+  sa-east-1:
+    WebsiteEndpoint: s3-website-sa-east-1.amazonaws.com
+  Parameters:
+  DomainName:
+    Description: The (sub)domain that you want to use for your PyPi repository (e.g. pypi.yourcompany.com)
+    Type: String
+  AcmCertificateArn:
+    Description: ARN of the ACM certificate for the domain name, must be registered in us-east-1
+    Type: String
+
+Resources:
+  PyPiS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DomainName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+  PyPiS3BucketBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PyPiS3Bucket
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:GetObject
+          Effect: Allow
+          Resource: !Sub 'arn:aws:s3:::${PyPiS3Bucket}/*'
+          Principal: "*"
+  PyPiCloudfrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+        Comment: Created by s3pypi
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          ForwardedValues:
+            QueryString: 'true'
+          TargetOriginId: PyPiS3BucketOrigin
+          ViewerProtocolPolicy: redirect-to-https
+        Enabled: 'true'
+        Origins:
+        - CustomOriginConfig:
+            HTTPPort: '80'
+            HTTPSPort: '443'
+            OriginProtocolPolicy: http-only
+          DomainName:
+            Fn::Join:
+            - "."
+            - - Ref: PyPiS3Bucket
+              - Fn::FindInMap:
+                - RegionMap
+                - Ref: AWS::Region
+                - WebsiteEndpoint
+          Id: PyPiS3BucketOrigin
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn:
+            Ref: AcmCertificateArn
+          MinimumProtocolVersion: TLSv1
+          SslSupportMethod: sni-only
