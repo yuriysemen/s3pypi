@@ -5,6 +5,9 @@ It is just to be sure it will be accessible at any time.
 
 This is also deployed to the same s3 repo, so we will always have this available.
 
+There are newer version where it is possible todefined Whitelisted IP addresses and fixed some issues (like not all valid characters could be in name of the package).
+I want to keep trusted version here!
+
 
 S3PyPI
 ======
